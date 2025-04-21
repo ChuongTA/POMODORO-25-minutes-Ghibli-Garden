@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🌸 Sakura Pomodoro Garden </title>
+  <style>
+    body {
+      background-color: #121212;
+      color: #ffffff;
+      font-family: sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    #timer {
+      font-size: 64px;
+      margin: 20px 0;
+      color: #00ff99;
+    }
+    button, select {
+      font-size: 18px;
+      padding: 8px 16px;
+      margin: 10px;
+      background-color: #1f1f1f;
+      color: #ffffff;
+      border: 2px solid #00ff99;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    #garden img {
+      max-width: 150px;
+      margin: 10px;
+    }
+    #achievement {
+      display: none;
+      margin-top: 20px;
+      max-width: 300px;
+    }
+    #message {
+      font-style: italic;
+      margin-top: 10px;
+    }
+    table {
+      margin: 30px auto;
+      border-collapse: collapse;
+      width: 80%;
+      max-width: 500px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #555;
+    }
+    th {
+      background-color: #222;
+      color: #00ff99;
+    }
+    td {
+      color: #eee;
+    }
+  </style>
+</head>
+<body>
+  <h1>🌸 Sakura Pomodoro Garden Ghibli World </h1>
+  <div id="timer">25:00</div>
+  <button onclick="startTimer()">Start</button>
+  <button onclick="resetTimer()">Reset</button>
+
+  <div id="garden">
+    <img id="sun" src="pictures/sun.png" alt="Sun">
+    <img id="cloud" src="pictures/cloud.png" alt="Cloud">
+    <img id="river" src="pictures/river.png" alt="River">
+    <img id="tree" src="" alt="Tree">
+    <img id="bird" src="pictures/bird.png" style="display:none;">
+    <img id="squirrel" src="pictures/squirrel.png" style="display:none;">
+    <img id="rabbit" src="pictures/rabbit.png" style="display:none;">
+  </div>
+
+  <img id="achievement" src="pictures/ted_meet_tracy.png" alt="Achievement">
+  <p id="message"></p>
+
+  <h2>Daily Focus Sessions</h2>
+  <table id="historyTable">
+    <thead><tr><th>Date</th><th>Sessions</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const POMODORO_TIME = 25 * 60 * 1000;
+    let timerInterval, endTime = null;
+
+    function getTodayKey() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function getTreeStage(count) {
+      if (count < 10) return "sakura_seed";
+      if (count < 20) return "sakura_sprount";
+      if (count < 30) return "sakura_small_tree";
+      if (count < 40) return "sakura_middle_tree";
+      return "sakura_full_mature_tree";
+    }
+
+    function updateGardenElements(count) {
+      document.getElementById("tree").src = `pictures/${getTreeStage(count)}.png`;
+
+      document.getElementById("bird").style.display = count >= 40 ? "inline-block" : "none";
+      document.getElementById("squirrel").style.display = count >= 50 ? "inline-block" : "none";
+      document.getElementById("rabbit").style.display = count >= 60 ? "inline-block" : "none";
+
+      if (count >= 70) {
+        document.getElementById("achievement").style.display = 'inline-block';
+        document.getElementById("message").textContent = "Chuong, I hope you find the one in the future - lebenslangerschicksalsschatz.";
+      } else {
+        document.getElementById("achievement").style.display = 'none';
+        document.getElementById("message").textContent = "";
+      }
+    }
+
+    function updateDisplay(ms) {
+      const sec = Math.max(0, Math.floor(ms / 1000));
+      const m = Math.floor(sec / 60), s = sec % 60;
+      document.getElementById("timer").textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function saveSession() {
+      const data = JSON.parse(localStorage.getItem("pomodoro_daily") || "{}");
+      const key = getTodayKey();
+      data[key] = (data[key] || 0) + 1;
+      localStorage.setItem("pomodoro_daily", JSON.stringify(data));
+      updateHistoryTable();
+      updateGardenFromData(data);
+    }
+
+    function updateHistoryTable() {
+      const data = JSON.parse(localStorage.getItem("pomodoro_daily") || "{}");
+      const tbody = document.querySelector("#historyTable tbody");
+      tbody.innerHTML = "";
+      Object.keys(data).sort((a, b) => b.localeCompare(a)).forEach(date => {
+        tbody.innerHTML += `<tr><td>${date}</td><td>${data[date]}</td></tr>`;
+      });
+    }
+
+    function updateGardenFromData(data) {
+      let count = 0;
+      const year = new Date().getFullYear();
+      for (let key in data) {
+        if (key.startsWith(String(year))) count += data[key];
+      }
+      updateGardenElements(count);
+    }
+
+    function tick() {
+      const now = Date.now();
+      const rem = endTime - now;
+      updateDisplay(rem);
+      if (rem <= 0) {
+        clearInterval(timerInterval);
+        endTime = null;
+        localStorage.removeItem("pomodoro_endTime");
+        alert("Great job! You finished one session.");
+        saveSession();
+        updateDisplay(POMODORO_TIME);
+      }
+    }
+
+    function startTimer() {
+      if (timerInterval || endTime) return;
+      endTime = Date.now() + POMODORO_TIME;
+      localStorage.setItem("pomodoro_endTime", endTime);
+      timerInterval = setInterval(tick, 1000);
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      endTime = null;
+      localStorage.removeItem("pomodoro_endTime");
+      updateDisplay(POMODORO_TIME);
+    }
+
+    window.onload = function () {
+      const saved = localStorage.getItem("pomodoro_endTime");
+      if (saved) {
+        endTime = parseInt(saved, 10);
+        if (Date.now() < endTime) timerInterval = setInterval(tick, 1000);
+        else localStorage.removeItem("pomodoro_endTime");
+      }
+      updateDisplay(POMODORO_TIME);
+      updateHistoryTable();
+      updateGardenFromData(JSON.parse(localStorage.getItem("pomodoro_daily") || "{}"));
+    };
+  </script>
+</body>
+</html>
